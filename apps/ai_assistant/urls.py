@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import AIRecommendationViewSet, GenerateRecommendationView
+from .views import AICoachFeedbackView, AIRecommendationViewSet, GenerateRecommendationView
 
 router = DefaultRouter()
 router.register("ai-recommendations", AIRecommendationViewSet, basename="ai-recommendation")
@@ -9,4 +9,5 @@ router.register("ai-recommendations", AIRecommendationViewSet, basename="ai-reco
 urlpatterns = [
     path("scores/<uuid:score_id>/generate-ai-recommendation/", GenerateRecommendationView.as_view(),
          name="generate-ai-recommendation"),
+    path("ai-coach/", AICoachFeedbackView.as_view(), name="ai-coach"),
 ] + router.urls

@@ -279,34 +279,3 @@ class ClubHealthSnapshot(BaseModel):
             f"{self.computed_for_date} - "
             f"{self.get_status_display()}"
         )
-
-
-class ClubHealthSnapshot(BaseModel):
-    """
-    PRS §16: "Health status should be a support signal, not automatically
-    a punishment or award score." Deliberately modeled as its own
-    time-series table, separate from Score - nothing in the scoring engine
-    (apps.evaluation.services) reads this, and nothing here feeds into a
-    club's evaluation score. It exists purely to power early intervention.
-    """
-
-    class Status(models.TextChoices):
-        HEALTHY = "healthy", "Healthy"
-        NEEDS_ATTENTION = "needs_attention", "Needs Attention"
-        AT_RISK = "at_risk", "At Risk"
-
-    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="health_snapshots")
-    computed_for_date = models.DateField()
-    status = models.CharField(max_length=20, choices=Status.choices)
-
-    # Raw indicator values behind the status, kept for transparency to the
-    # Committee (and so indicator weighting can change later without
-    # losing historical context - PRS: "Committee should be able to
-    # configure which indicators contribute to health status").
-    indicators = models.JSONField(default=dict, blank=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["club", "computed_for_date"], name="unique_health_snapshot_per_day")
-        ]
-        ordering = ["-computed_for_date"]

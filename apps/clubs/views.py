@@ -40,6 +40,8 @@ class ClubViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated(), IsCommitteeHead()]
         if self.action in ("update", "partial_update", "destroy"):
             return [permissions.IsAuthenticated(), IsOwnClubLeader()]
+        if self.action in ("list", "retrieve", "portfolio"):
+            return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     @action(detail=True, methods=["get"])

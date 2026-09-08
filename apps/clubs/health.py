@@ -15,8 +15,7 @@ from django.utils import timezone
 
 from apps.activities.models import Activity
 from apps.reporting.models import MonthlyReport
-
-from .health_models import ClubHealthSnapshot
+from .models import ClubHealthSnapshot
 
 
 @dataclass

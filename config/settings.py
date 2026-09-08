@@ -10,54 +10,8 @@ Design decisions (see /docs/architecture.md for the full rationale):
   without becoming a monolith of tangled logic.
 """
 import os
-import dj_database_url
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Security
-SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-fallback-local-key")
-DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
-
-ALLOWED_HOSTS = ["*"]  # Configured via cloud environment
-
-# Middleware Order (WhiteNoise directly under SecurityMiddleware)
-MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",  # Added
-    "corsheaders.middleware.CorsMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-]
-
-# Production PostgreSQL Database Wiring
-DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
-
-# Static Files (WhiteNoise Storage Engine)
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-# CORS Setup for Production Frontend
-CORS_ALLOWED_ORIGINS = os.environ.get(
-    "CORS_ALLOWED_ORIGINS", 
-    "http://localhost:5173,http://localhost:5174"
-).split(",")
-CORS_ALLOW_CREDENTIALS = True
-import os
 from datetime import timedelta
 from pathlib import Path
-
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -66,6 +20,7 @@ env = environ.Env(
     DEBUG=(bool, False),
 )
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="change-me-in-.env")
 DEBUG = env("DEBUG")
@@ -209,7 +164,13 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
+CORS_ALLOWED_ORIGINS = env.list(
+    "CORS_ALLOWED_ORIGINS",
+    default=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
+)
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 # --------------------------------------------------------------------------
 # AI provider abstraction — never hard-code a specific vendor SDK call

@@ -1,8 +1,11 @@
+from django.utils import timezone
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
+from apps.clubs.models import Club
 from apps.core.permissions import IsCommitteeMember
 from apps.evaluation.models import Score
 
@@ -62,3 +65,35 @@ class GenerateRecommendationView(APIView):
         score.stage = Score.Stage.UNDER_REVIEW
         score.save(update_fields=["ai_recommended_value", "stage", "updated_at"])
         return Response(AIRecommendationSerializer(recommendation).data, status=201)
+
+
+class AICoachFeedbackView(APIView):
+    """Provides practical, actionable club coaching guidance based on actual metrics."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        club_id = request.query_params.get("club")
+        user = request.user
+        club = None
+        if club_id:
+            club = Club.objects.filter(id=club_id).first()
+        elif user.role == User.Role.CLUB_LEADER:
+            membership = user.memberships.filter(role="leader").first()
+            if membership:
+                club = membership.club
+        if not club:
+            club = Club.objects.first()
+
+        provider = get_provider()
+        club_context = {
+            "name": club.name if club else "Your Club",
+            "activity_count": club.activities.count() if club else 0,
+            "has_collaboration": club.incoming_collaborations.filter(status="confirmed").exists() if club else False,
+        }
+        feedback = provider.generate_coach_feedback(club_context)
+        return Response({
+            "club_id": str(club.id) if club else None,
+            "club_name": club.name if club else None,
+            "feedback": feedback,
+            "generated_at": timezone.now().isoformat(),
+        })

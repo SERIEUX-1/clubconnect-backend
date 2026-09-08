@@ -1,7 +1,7 @@
 import pytest
 
 from apps.clubs.health import HealthIndicators, determine_status
-from apps.clubs.health_models import ClubHealthSnapshot
+from apps.clubs.models import ClubHealthSnapshot
 
 pytestmark = pytest.mark.django_db
 
