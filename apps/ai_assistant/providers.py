@@ -9,9 +9,14 @@ services call `get_provider()` and work only with the AIProvider interface.
 from __future__ import annotations
 
 import abc
-from dataclasses import dataclass
+import json
+import logging
+import re
+from dataclasses import dataclass, field
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -31,7 +36,30 @@ class RecommendationResponse:
     raw_metadata: dict
 
 
+@dataclass
+class ChatGuideRequest:
+    question: str
+    role: str
+    institution_name: str
+    playbook_label: str
+    playbook_reply: str
+    playbook_steps: list[str] = field(default_factory=list)
+    analysis: list[str] = field(default_factory=list)
+    action_labels: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ChatGuideResponse:
+    reply: str
+    steps: list[str]
+    suggestions: list[str]
+    model_name: str
+    raw_metadata: dict = field(default_factory=dict)
+
+
 class AIProvider(abc.ABC):
+    uses_language_model = False
+
     @abc.abstractmethod
     def recommend_score(self, request: RecommendationRequest) -> RecommendationResponse:
         ...
@@ -40,10 +68,18 @@ class AIProvider(abc.ABC):
     def generate_coach_feedback(self, club_context: dict) -> str:
         ...
 
+    def map_topic(self, question: str, catalog: list[dict]) -> str | None:
+        return None
+
+    def guide_chat(self, request: ChatGuideRequest) -> ChatGuideResponse | None:
+        return None
+
 
 class AnthropicProvider(AIProvider):
     """Reference implementation. Swap for another AIProvider subclass in
     settings.AI_PROVIDER without touching any calling code."""
+
+    uses_language_model = True
 
     def __init__(self, api_key: str, model: str):
         self.api_key = api_key
@@ -52,6 +88,76 @@ class AnthropicProvider(AIProvider):
     def _client(self):
         import anthropic  # imported lazily so the package is optional until configured
         return anthropic.Anthropic(api_key=self.api_key)
+
+    def map_topic(self, question: str, catalog: list[dict]) -> str | None:
+        lines = "\n".join(f"- {row['id']}: {row['label']}" for row in catalog)
+        try:
+            message = self._client().messages.create(
+                model=self.model,
+                max_tokens=80,
+                system=(
+                    "You map a ClubConnect user question to one playbook id. "
+                    "Return JSON only: {\"topic\": \"<id or unknown>\"}. "
+                    "If none fit, topic is unknown. Never invent an id."
+                ),
+                messages=[{"role": "user", "content": f"Question: {question}\n\nPlaybooks:\n{lines}"}],
+            )
+        except Exception:
+            logger.exception("Copilot topic mapping failed")
+            return None
+        text = "".join(block.text for block in message.content if getattr(block, "type", "") == "text")
+        data = _json_object(text)
+        topic = str((data or {}).get("topic") or "").strip()
+        allowed = {row["id"] for row in catalog}
+        if topic in allowed:
+            return topic
+        return None
+
+    def guide_chat(self, request: ChatGuideRequest) -> ChatGuideResponse | None:
+        facts = (
+            f"Role: {request.role}\n"
+            f"Campus: {request.institution_name}\n"
+            f"Playbook: {request.playbook_label}\n"
+            f"Canonical answer:\n{request.playbook_reply}\n"
+            f"Steps:\n" + "\n".join(f"- {s}" for s in request.playbook_steps) + "\n"
+            f"How the playbook read the question:\n" + "\n".join(f"- {s}" for s in request.analysis) + "\n"
+            f"Allowed buttons: {', '.join(request.action_labels) or '(none)'}\n"
+        )
+        try:
+            message = self._client().messages.create(
+                model=self.model,
+                max_tokens=500,
+                system=(
+                    "You are ClubConnect Copilot. You are a language model that may ONLY "
+                    "rephrase PLAYBOOK facts. Never invent screens, emails, scores, clubs, "
+                    "roles, or buttons. Never reveal unpublished CCEA marks unless they are "
+                    "in the facts. Answer the user's question directly. Use **bold** for "
+                    "button names. Return JSON only: "
+                    "{\"reply\": string, \"steps\": string[], \"suggestions\": string[]}."
+                ),
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"User question: {request.question}\n\nPLAYBOOK FACTS:\n{facts}",
+                    }
+                ],
+            )
+        except Exception:
+            logger.exception("Copilot language model phrasing failed")
+            return None
+        text = "".join(block.text for block in message.content if getattr(block, "type", "") == "text")
+        data = _json_object(text)
+        if not data or not str(data.get("reply") or "").strip():
+            return None
+        steps = data.get("steps") if isinstance(data.get("steps"), list) else request.playbook_steps
+        suggestions = data.get("suggestions") if isinstance(data.get("suggestions"), list) else []
+        return ChatGuideResponse(
+            reply=str(data["reply"]).strip(),
+            steps=[str(s) for s in steps if str(s).strip()][:6],
+            suggestions=[str(s) for s in suggestions if str(s).strip()][:4],
+            model_name=self.model,
+            raw_metadata={"raw_text": text[:2000]},
+        )
 
     def recommend_score(self, request: RecommendationRequest) -> RecommendationResponse:
         prompt = self._build_scoring_prompt(request)
@@ -112,6 +218,8 @@ class AnthropicProvider(AIProvider):
 class RuleBasedProvider(AIProvider):
     """Institutional evaluation rule provider when no external API key is set."""
 
+    uses_language_model = False
+
     def recommend_score(self, request: RecommendationRequest) -> RecommendationResponse:
         evidence_count = len(request.evidence_summaries)
         club_name = request.club_context.get("club_name", "the club")
@@ -166,6 +274,19 @@ class RuleBasedProvider(AIProvider):
             f"Outstanding performance, {club_name}! Both activities and collaborations are on track. "
             "Focus next month on capturing quantitative participant outcomes for your impact project documentation."
         )
+
+
+def _json_object(text: str) -> dict | None:
+    if not text:
+        return None
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        data = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def get_provider() -> AIProvider:

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.core.permissions import IsCommitteeMember, IsOwnClubLeader
+from apps.core.tenancy import scope_club_owned
 
 from .models import Evidence
 from .serializers import EvidenceReviewSerializer, EvidenceSerializer
@@ -14,11 +15,10 @@ class EvidenceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.DEAN_ADMIN):
-            return Evidence.objects.all()
-        if user.role == User.Role.COMMITTEE_MEMBER:
-            return Evidence.objects.filter(club_id__in=user.assigned_club_ids())
-        return Evidence.objects.filter(club__memberships__user=user, club__memberships__role="leader")
+        qs = Evidence.objects.select_related("club", "activity")
+        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.STAFF, User.Role.SYSTEM_ADMIN):
+            return scope_club_owned(qs, user)
+        return qs.filter(club__memberships__user=user, club__memberships__role="leader")
 
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):

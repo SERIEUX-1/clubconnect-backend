@@ -13,10 +13,8 @@ class ActivityViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.DEAN_ADMIN):
+        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.STAFF, User.Role.SYSTEM_ADMIN):
             return Activity.objects.all()
-        if user.role == User.Role.COMMITTEE_MEMBER:
-            return Activity.objects.filter(club_id__in=user.assigned_club_ids())
         return Activity.objects.filter(club__memberships__user=user, club__memberships__role="leader") | \
                Activity.objects.filter(status="verified")  # verified activities are publicly viewable
 

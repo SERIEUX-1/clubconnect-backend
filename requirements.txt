@@ -112,6 +112,9 @@ urllib3==2.6.3
 wadllib==2.0.0
 wheel==0.46.3
 whitenoise==6.12.0
+django-storages==1.14.4
+boto3==1.35.99
+
 xdg==5
 xkit==0.0.0
 zipp==3.23.0

@@ -1,7 +1,32 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import CustomTokenObtainPairView, DemoPersonasView, MeView, RegisterView, SwitchRoleView
+from .views import (
+    CampusCommitteeCurrentView,
+    CampusCommitteeHandoverConfirmView,
+    CampusCommitteeHandoverDeclineView,
+    CampusCommitteeHandoverListCreateView,
+    CampusInstitutionView,
+    CampusOnboardingView,
+    CampusUserDetailView,
+    CampusUserListCreateView,
+    CustomTokenObtainPairView,
+    DemoPersonasView,
+    GoogleSSOView,
+    InstitutionListView,
+    LicenceInquiryCreateView,
+    LicenceInquiryListView,
+    LicenceInquiryStatusView,
+    MeTranscriptView,
+    MeView,
+    MicrosoftSSOView,
+    RegisterView,
+    SSOStatusView,
+    SupportTicketCreateView,
+    SupportTicketStaffView,
+    SupportTicketStatusView,
+    SwitchRoleView,
+)
 
 urlpatterns = [
     path("auth/token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
@@ -9,5 +34,44 @@ urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/demo-personas/", DemoPersonasView.as_view(), name="demo_personas"),
     path("auth/switch-role/", SwitchRoleView.as_view(), name="switch_role"),
+    path("institutions/", InstitutionListView.as_view(), name="institutions"),
+    path("licence-inquiries/", LicenceInquiryCreateView.as_view(), name="licence_inquiry_create"),
+    path("admin/licence-inquiries/", LicenceInquiryListView.as_view(), name="licence_inquiry_list"),
+    path(
+        "admin/licence-inquiries/<uuid:inquiry_id>/",
+        LicenceInquiryStatusView.as_view(),
+        name="licence_inquiry_status",
+    ),
+    path("help/tickets/", SupportTicketCreateView.as_view(), name="help_tickets"),
+    path("admin/help-tickets/", SupportTicketStaffView.as_view(), name="help_tickets_staff"),
+    path("admin/help-tickets/<uuid:ticket_id>/", SupportTicketStatusView.as_view(), name="help_ticket_status"),
     path("me/", MeView.as_view(), name="me"),
+    path("me/transcript/", MeTranscriptView.as_view(), name="me_transcript"),
+    path("auth/sso-status/", SSOStatusView.as_view(), name="sso_status"),
+    path("auth/sso/google/", GoogleSSOView.as_view(), name="sso_google"),
+    path("auth/sso/microsoft/", MicrosoftSSOView.as_view(), name="sso_microsoft"),
+    path("campus-onboarding/", CampusOnboardingView.as_view(), name="campus_onboarding"),
+    path("campus-users/", CampusUserListCreateView.as_view(), name="campus_users"),
+    path("campus-users/<uuid:user_id>/", CampusUserDetailView.as_view(), name="campus_user_detail"),
+    path("campus-institution/", CampusInstitutionView.as_view(), name="campus_institution"),
+    path(
+        "campus-committee-handovers/",
+        CampusCommitteeHandoverListCreateView.as_view(),
+        name="campus_committee_handovers",
+    ),
+    path(
+        "campus-committee-handovers/current/",
+        CampusCommitteeCurrentView.as_view(),
+        name="campus_committee_current",
+    ),
+    path(
+        "campus-committee-handovers/<uuid:handover_id>/confirm/",
+        CampusCommitteeHandoverConfirmView.as_view(),
+        name="campus_committee_handover_confirm",
+    ),
+    path(
+        "campus-committee-handovers/<uuid:handover_id>/decline/",
+        CampusCommitteeHandoverDeclineView.as_view(),
+        name="campus_committee_handover_decline",
+    ),
 ]

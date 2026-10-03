@@ -39,9 +39,16 @@ class Evidence(BaseModel):
     # object/cloud storage (see settings.DEFAULT_FILE_STORAGE), per PRS
     # Section 7: "use object/cloud storage rather than the primary
     # relational database" for large media.
-    file = models.FileField(upload_to=evidence_upload_path)
+    file = models.FileField(upload_to=evidence_upload_path, blank=True)
     external_link = models.URLField(blank=True)
     caption = models.CharField(max_length=300, blank=True)
+    impact_project = models.ForeignKey(
+        "impact.ImpactProject",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="evidence_items",
+    )
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SUBMITTED)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)

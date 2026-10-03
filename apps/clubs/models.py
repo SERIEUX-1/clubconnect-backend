@@ -19,8 +19,8 @@ class Club(SoftDeleteModel):
         SUSPENDED = "suspended", "Suspended"
         DORMANT = "dormant", "Dormant"
 
-    name = models.CharField(max_length=200, unique=True)
-    slug = models.SlugField(max_length=220, unique=True)
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220)
 
     logo = models.ImageField(
         upload_to="club_logos/",
@@ -46,6 +46,26 @@ class Club(SoftDeleteModel):
         default=Status.PENDING,
     )
 
+    institution = models.ForeignKey(
+        "accounts.Institution",
+        on_delete=models.PROTECT,
+        related_name="clubs",
+        null=True,
+        blank=True,
+    )
+
+    charter_statement = models.TextField(
+        blank=True,
+        help_text="Why this club should be recognised at the institution.",
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="requested_clubs",
+    )
+
     public_contact_email = models.EmailField(blank=True)
 
     public_contact_channels = models.JSONField(
@@ -59,6 +79,10 @@ class Club(SoftDeleteModel):
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(fields=["institution", "slug"], name="unique_club_slug_per_institution"),
+            models.UniqueConstraint(fields=["institution", "name"], name="unique_club_name_per_institution"),
+        ]
 
     def __str__(self):
         return self.name
@@ -156,6 +180,17 @@ class ClubMembership(SoftDeleteModel):
         blank=True,
     )
 
+    class Source(models.TextChoices):
+        JOIN = "join", "Join request"
+        CENSUS = "census", "Membership census"
+        OFFICE = "office", "Office / handover"
+
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.JOIN,
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -166,6 +201,71 @@ class ClubMembership(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.user} - {self.club} ({self.role})"
+
+
+class ClubConceptNote(BaseModel):
+    """Club leader asks the Committee Head to release part of this year's shared grant."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        APPROVED = "approved", "Approved"
+        DECLINED = "declined", "Declined"
+        WITHDRAWN = "withdrawn", "Withdrawn"
+
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="concept_notes")
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="club_concept_notes",
+    )
+    academic_year = models.CharField(max_length=20)
+    title = models.CharField(max_length=200)
+    purpose = models.TextField()
+    amount_requested = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SUBMITTED)
+    committee_comment = models.TextField(blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="concept_notes_decided",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.club.name}: {self.title} ({self.status})"
+
+
+class ClubBudgetSpend(BaseModel):
+    """Money actually used from a club's share-weighted grant. Updates every ledger instantly."""
+
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="budget_spends")
+    concept_note = models.ForeignKey(
+        ClubConceptNote,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="spends",
+    )
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="club_budget_spends",
+    )
+    academic_year = models.CharField(max_length=20)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    comment = models.TextField()
+    spent_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.club.name} spent {self.amount}"
 
 
 class LeadershipTerm(SoftDeleteModel):
@@ -218,6 +318,59 @@ class LeadershipTerm(SoftDeleteModel):
             f"{self.position_title} - "
             f"{self.academic_year}"
         )
+
+
+class LeadershipHandover(BaseModel):
+    """Outgoing club leader submits the full committee slate to the Committee Head."""
+
+    class Status(models.TextChoices):
+        NOMINATED = "nominated", "Submitted to committee head"
+        ACCEPTED = "accepted", "Accepted"
+        CONFIRMED = "confirmed", "Confirmed by committee"
+        DECLINED = "declined", "Declined"
+
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="handovers")
+    outgoing = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="handovers_outgoing",
+    )
+    incoming = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="handovers_incoming",
+    )
+    incoming_email = models.EmailField()
+    outgoing_committee = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="[{name, email, position}, ...] as submitted by the outgoing club leader.",
+    )
+    incoming_committee = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="[{name, email, position}, ...] who take office when the Committee Head confirms.",
+    )
+    academic_year = models.CharField(max_length=20, blank=True)
+    notes = models.TextField(blank=True)
+    achievements_summary = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NOMINATED)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="handovers_confirmed",
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.club.name} handover ({self.status})"
 
 
 class ClubHealthSnapshot(BaseModel):

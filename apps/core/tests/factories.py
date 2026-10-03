@@ -8,9 +8,26 @@ from decimal import Decimal
 
 import factory
 
-from apps.accounts.models import User
+from apps.accounts.models import Institution, User
 from apps.clubs.models import Club, ClubMembership
 from apps.evaluation.models import EvaluationCriterion, EvaluationCycle, Score
+
+
+class InstitutionFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Institution
+
+    name = factory.Sequence(lambda n: f"Test University {n}")
+    short_name = factory.Sequence(lambda n: f"TU{n}")
+    slug = factory.Sequence(lambda n: f"test-university-{n}")
+    kind = Institution.Kind.UNIVERSITY
+    student_email_domains = factory.LazyAttribute(lambda o: [f"student.{o.slug}.edu"])
+    staff_email_domains = factory.LazyAttribute(lambda o: [f"{o.slug}.edu"])
+    allowed_email_domains = factory.LazyAttribute(
+        lambda o: [f"student.{o.slug}.edu", f"{o.slug}.edu"]
+    )
+    is_active = True
+    awards_enabled = True
 
 
 class UserFactory(factory.django.DjangoModelFactory):
@@ -20,6 +37,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     username = factory.Sequence(lambda n: f"user{n}")
     email = factory.LazyAttribute(lambda o: f"{o.username}@example.edu")
     role = User.Role.STUDENT
+    institution = factory.SubFactory(InstitutionFactory)
 
     @factory.post_generation
     def password(self, create, extracted, **kwargs):
@@ -36,6 +54,7 @@ class ClubFactory(factory.django.DjangoModelFactory):
     slug = factory.Sequence(lambda n: f"test-club-{n}")
     category = "Technology"
     status = Club.Status.RECOGNIZED
+    institution = factory.SubFactory(InstitutionFactory)
 
 
 class ClubLeaderFactory:
@@ -47,7 +66,7 @@ class ClubLeaderFactory:
     @staticmethod
     def create(club=None, **user_kwargs):
         club = club or ClubFactory()
-        user = UserFactory(role=User.Role.CLUB_LEADER, **user_kwargs)
+        user = UserFactory(role=User.Role.CLUB_LEADER, institution=club.institution, **user_kwargs)
         ClubMembership.objects.create(
             club=club, user=user, role=ClubMembership.MembershipRole.LEADER,
             status=ClubMembership.Status.APPROVED, is_active=True,

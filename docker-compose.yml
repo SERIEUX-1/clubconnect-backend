@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: clubconnect
+      POSTGRES_USER: clubconnect
+      POSTGRES_PASSWORD: clubconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - clubconnect_pg:/var/lib/postgresql/data
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  clubconnect_pg:

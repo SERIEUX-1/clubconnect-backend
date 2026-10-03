@@ -7,3 +7,5 @@ db.sqlite3
 .venv/
 *.egg-info/
 .pytest_cache/
+/var/
+/staticfiles/
