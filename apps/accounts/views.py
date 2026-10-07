@@ -71,6 +71,15 @@ ALCHE_DEMO = [
         "badge": "ALCHE Staff",
     },
     {
+        "role": "student_life",
+        "label": "Student Life",
+        "name": "Amara Diallo",
+        "email": "amara.diallo@alueducation.com",
+        "password": "Pass1234!",
+        "description": "Staff email. Morning desk for charters, quiet clubs, the membership window, and campus notices. Award scores stay with the Committee Head.",
+        "badge": "Student Life",
+    },
+    {
         "role": "system_admin",
         "label": "System Administrator",
         "name": "Admin Root",
@@ -161,6 +170,25 @@ class SwitchRoleView(APIView):
         email_map = {item["role"]: item["email"] for item in ALCHE_DEMO}
         target_email = email_map.get(target_role)
         target = User.objects.filter(email__iexact=target_email).first() if target_email else None
+        if not target and target_email:
+            persona = next((item for item in ALCHE_DEMO if item["role"] == target_role), None)
+            institution = Institution.objects.filter(slug="alche").first() or Institution.objects.filter(is_active=True).first()
+            if persona and institution:
+                first, _, last = persona["name"].partition(" ")
+                username = target_email.split("@")[0].replace(".", "_")
+                if User.objects.filter(username=username).exists():
+                    username = f"{username}_life"
+                target = User(
+                    username=username,
+                    email=target_email,
+                    institution=institution,
+                    role=target_role,
+                    first_name=first,
+                    last_name=last,
+                    is_staff=target_role in (User.Role.STAFF, User.Role.STUDENT_LIFE, User.Role.SYSTEM_ADMIN),
+                )
+                target.set_password(persona["password"])
+                target.save()
         if not target:
             user = request.user
             user.role = target_role

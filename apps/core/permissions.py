@@ -53,6 +53,16 @@ class IsStaffOrAdmin(IsDeanOrAdmin):
     pass
 
 
+class IsStudentLife(IsRole):
+    allowed_roles = (User.Role.STUDENT_LIFE,)
+
+
+class IsCampusInsight(IsRole):
+    """Lecturers, Student Life, and campus IT may read the campus picture and send notices."""
+
+    allowed_roles = (User.Role.STAFF, User.Role.STUDENT_LIFE, User.Role.SYSTEM_ADMIN)
+
+
 class IsSystemAdmin(IsRole):
     allowed_roles = (User.Role.SYSTEM_ADMIN,)
 
@@ -70,6 +80,7 @@ class IsCommitteeOrDean(IsRole):
     allowed_roles = (
         User.Role.COMMITTEE_HEAD,
         User.Role.STAFF,
+        User.Role.STUDENT_LIFE,
         User.Role.SYSTEM_ADMIN,
     )
 
@@ -96,6 +107,7 @@ class IsOwnClubLeader(permissions.BasePermission):
         if request.user.role in (
             User.Role.COMMITTEE_HEAD,
             User.Role.STAFF,
+            User.Role.STUDENT_LIFE,
             User.Role.SYSTEM_ADMIN,
         ):
             return True

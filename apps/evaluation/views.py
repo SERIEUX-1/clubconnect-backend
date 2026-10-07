@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.clubs.models import Club
-from apps.core.permissions import IsCommitteeHead, IsCommitteeMember, IsStaffOrAdmin
+from apps.core.permissions import IsCampusInsight, IsCommitteeHead, IsCommitteeMember
 from apps.core.tenancy import is_platform_operator
 
 from .models import Appeal, EvaluationCriterion, EvaluationCycle, Score
@@ -164,7 +164,7 @@ class MonthlyEvaluationView(APIView):
 class CampusAnalyticsView(APIView):
     """GET /api/campus-analytics/ — staff/lecturer campus snapshot."""
 
-    permission_classes = [permissions.IsAuthenticated, IsStaffOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsCampusInsight]
 
     def get(self, request):
         user = request.user
@@ -176,7 +176,7 @@ class CampusAnalyticsView(APIView):
 class CampusBriefView(APIView):
     """GET /api/campus-brief/ — live staff brief. Unpublished awards stay out."""
 
-    permission_classes = [permissions.IsAuthenticated, IsStaffOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsCampusInsight]
 
     def get(self, request):
         user = request.user

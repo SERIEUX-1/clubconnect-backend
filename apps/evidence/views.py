@@ -16,7 +16,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Evidence.objects.select_related("club", "activity")
-        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.STAFF, User.Role.SYSTEM_ADMIN):
+        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.STAFF, User.Role.STUDENT_LIFE, User.Role.SYSTEM_ADMIN):
             return scope_club_owned(qs, user)
         return qs.filter(club__memberships__user=user, club__memberships__role="leader")
 

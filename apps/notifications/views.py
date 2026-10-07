@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.clubs.models import ClubMembership
-from apps.core.permissions import IsStaffOrAdmin
+from apps.core.permissions import IsCampusInsight
 from apps.core.tenancy import is_platform_operator
 from apps.evaluation.monthly import evaluate_institution_month
 
@@ -27,7 +27,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
 class BroadcastNoticeView(APIView):
     """Staff/lecturers send a campus notice. Recipients get an in-app notification."""
 
-    permission_classes = [permissions.IsAuthenticated, IsStaffOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsCampusInsight]
 
     def post(self, request):
         user = request.user

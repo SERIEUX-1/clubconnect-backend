@@ -103,6 +103,22 @@ ROLE_GUIDES = {
         ],
         "start": "/staff-dashboard",
     },
+    "student_life": {
+        "can": [
+            "Open the Student Life desk and work three piles: waiting on you, going quiet, and already fine.",
+            "Recognise or return a club charter, and pause or restore a club with a written reason.",
+            "Open or close the membership window for the campus.",
+            "Read every club's members, events, reports, and evidence on this campus.",
+            "Send a notice to leaders or the campus, and download the campus brief.",
+        ],
+        "cannot": [
+            "Type Campus Clubs Excellence Awards scores. That stays with the Committee Head.",
+            "Rewrite a club's report, evidence, or ordinary on-campus event.",
+            "Check a student into an event.",
+            "Manage sign-in domains or other people's accounts.",
+        ],
+        "start": "/student-life",
+    },
     "system_admin": {
         "can": [
             "Run this licensed campus the way a Google Workspace Super Admin or Canvas Account Admin runs one school.",

@@ -8,7 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
-from apps.core.permissions import IsCommitteeHead, IsCommitteeOrDean, IsOwnClubLeader
+from apps.audit.models import AuditLog
+from apps.core.permissions import IsCommitteeHead, IsCommitteeOrDean, IsOwnClubLeader, IsStudentLife
 from apps.core.tenancy import is_platform_operator, scope_queryset
 from apps.evidence.models import Evidence
 
@@ -50,6 +51,7 @@ class ClubViewSet(viewsets.ModelViewSet):
             user.role in (
                 User.Role.COMMITTEE_HEAD,
                 User.Role.STAFF,
+                User.Role.STUDENT_LIFE,
                 User.Role.SYSTEM_ADMIN,
             )
             or (
@@ -102,6 +104,8 @@ class ClubViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         if self.action in ("recognize", "reject_charter"):
             return [permissions.IsAuthenticated(), IsCommitteeOrDean()]
+        if self.action in ("pause", "restore"):
+            return [permissions.IsAuthenticated(), IsStudentLife()]
         return [permissions.IsAuthenticated()]
 
     @action(detail=True, methods=["get"])
@@ -111,6 +115,7 @@ class ClubViewSet(viewsets.ModelViewSet):
             is_manager = request.user.is_authenticated and request.user.role in (
                 User.Role.COMMITTEE_HEAD,
                 User.Role.STAFF,
+                User.Role.STUDENT_LIFE,
                 User.Role.SYSTEM_ADMIN,
             )
             is_owner = request.user.is_authenticated and (
@@ -278,6 +283,42 @@ class ClubViewSet(viewsets.ModelViewSet):
         club.save(update_fields=["status", "updated_at"])
         return Response(ClubManageSerializer(club).data)
 
+    @action(detail=True, methods=["post"])
+    def pause(self, request, pk=None):
+        club = self.get_object()
+        reason = (request.data.get("reason") or "").strip()
+        if len(reason) < 8:
+            return Response({"error": "Write a short reason before pausing a club."}, status=400)
+        club.status = Club.Status.SUSPENDED
+        club.save(update_fields=["status", "updated_at"])
+        AuditLog.objects.create(
+            actor=request.user,
+            action="club.paused",
+            target_model="clubs.Club",
+            target_id=str(club.id),
+            reason=reason,
+            metadata={"name": club.name},
+        )
+        return Response(ClubManageSerializer(club).data)
+
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        club = self.get_object()
+        reason = (request.data.get("reason") or "").strip()
+        if len(reason) < 8:
+            return Response({"error": "Write a short reason before restoring a club."}, status=400)
+        club.status = Club.Status.RECOGNIZED
+        club.save(update_fields=["status", "updated_at"])
+        AuditLog.objects.create(
+            actor=request.user,
+            action="club.restored",
+            target_model="clubs.Club",
+            target_id=str(club.id),
+            reason=reason,
+            metadata={"name": club.name},
+        )
+        return Response(ClubManageSerializer(club).data)
+
 
 class ClubMembershipViewSet(viewsets.ModelViewSet):
     queryset = ClubMembership.objects.all()
@@ -295,6 +336,7 @@ class ClubMembershipViewSet(viewsets.ModelViewSet):
         if user.role in (
             User.Role.COMMITTEE_HEAD,
             User.Role.STAFF,
+            User.Role.STUDENT_LIFE,
             User.Role.SYSTEM_ADMIN,
         ):
             return qs
@@ -373,7 +415,7 @@ class LeadershipHandoverViewSet(viewsets.ModelViewSet):
         if not user.institution_id:
             return qs.none()
         qs = qs.filter(club__institution_id=user.institution_id)
-        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.STAFF, User.Role.SYSTEM_ADMIN):
+        if user.role in (User.Role.COMMITTEE_HEAD, User.Role.STAFF, User.Role.STUDENT_LIFE, User.Role.SYSTEM_ADMIN):
             return qs
         return qs.filter(Q(outgoing=user) | Q(incoming=user) | Q(incoming_email__iexact=user.email))
 
@@ -481,7 +523,12 @@ class LeadershipHandoverViewSet(viewsets.ModelViewSet):
 
 
 def _committee_or_staff(user):
-    return user.role in (User.Role.COMMITTEE_HEAD, User.Role.STAFF, User.Role.SYSTEM_ADMIN)
+    return user.role in (
+        User.Role.COMMITTEE_HEAD,
+        User.Role.STAFF,
+        User.Role.STUDENT_LIFE,
+        User.Role.SYSTEM_ADMIN,
+    )
 
 
 class MembershipCensusWindowView(APIView):
@@ -494,9 +541,9 @@ class MembershipCensusWindowView(APIView):
 
     def patch(self, request):
         user = request.user
-        if user.role != User.Role.COMMITTEE_HEAD or not user.institution_id:
+        if user.role not in (User.Role.COMMITTEE_HEAD, User.Role.STUDENT_LIFE) or not user.institution_id:
             return Response(
-                {"error": "Only this campus's Committee Head can open or close membership requests."},
+                {"error": "Only this campus's Committee Head or Student Life office can open or close membership requests."},
                 status=403,
             )
         institution = user.institution
@@ -756,5 +803,19 @@ class ClubBudgetSpendViewSet(viewsets.ModelViewSet):
             spent_on=timezone.now().date(),
         )
         return Response(ClubBudgetSpendSerializer(spend).data, status=201)
+
+
+class StudentLifeDeskView(APIView):
+    """The three piles Student Life opens in the morning."""
+
+    permission_classes = [permissions.IsAuthenticated, IsStudentLife]
+
+    def get(self, request):
+        user = request.user
+        if not user.institution_id:
+            return Response({"error": "No campus is attached to this account."}, status=400)
+        from .student_life import student_life_desk
+
+        return Response(student_life_desk(user.institution))
 
 

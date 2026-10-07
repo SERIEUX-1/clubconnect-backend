@@ -302,6 +302,7 @@ class User(AbstractUser, BaseModel):
         CLUB_LEADER = "club_leader", "Club Leader"
         COMMITTEE_HEAD = "committee_head", "Committee Head"
         STAFF = "staff", "Staff / Lecturer"
+        STUDENT_LIFE = "student_life", "Student Life"
         SYSTEM_ADMIN = "system_admin", "System Administrator"
 
     institution = models.ForeignKey(

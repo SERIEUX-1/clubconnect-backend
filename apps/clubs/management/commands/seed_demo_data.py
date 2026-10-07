@@ -137,6 +137,16 @@ class Command(BaseCommand):
                 "is_staff": True,
             },
             {
+                "username": "amara_life",
+                "email": "amara.diallo@alueducation.com",
+                "first_name": "Amara",
+                "last_name": "Diallo",
+                "role": User.Role.STUDENT_LIFE,
+                "student_id": "STF-2017-0021",
+                "phone_number": "+1-555-0177",
+                "is_staff": True,
+            },
+            {
                 "username": "admin_root",
                 "email": "admin@alueducation.com",
                 "first_name": "System",
@@ -177,7 +187,7 @@ class Command(BaseCommand):
         users["elena_head"].last_login = timezone.now() - timedelta(days=18)
         users["elena_head"].save(update_fields=["last_login"])
 
-        self.stdout.write(self.style.SUCCESS(f"Seeded {len(users)} users across all 6 roles."))
+        self.stdout.write(self.style.SUCCESS(f"Seeded {len(users)} users across all 7 roles."))
 
         # ----------------------------------------------------------------------
         # 2. Clubs — official ALCHE Clubs and Societies Database + ExCo

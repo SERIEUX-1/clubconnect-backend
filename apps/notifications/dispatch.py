@@ -69,6 +69,7 @@ def dashboard_path(user) -> str:
         "club_leader": "/club-leader-dashboard",
         "committee_head": "/committee-dashboard",
         "staff": "/staff-dashboard",
+        "student_life": "/student-life",
         "system_admin": "/admin-dashboard",
     }.get(role, "/")
 

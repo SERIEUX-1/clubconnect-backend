@@ -12,6 +12,7 @@ from .views import (
     MembershipCensusWindowView,
     MembershipLedgerMineView,
     MembershipLedgerView,
+    StudentLifeDeskView,
 )
 
 router = DefaultRouter()
@@ -22,6 +23,7 @@ router.register("club-concept-notes", ClubConceptNoteViewSet, basename="club-con
 router.register("club-budget-spends", ClubBudgetSpendViewSet, basename="club-budget-spend")
 
 urlpatterns = [
+    path("student-life/desk/", StudentLifeDeskView.as_view(), name="student_life_desk"),
     path("membership-census/window/", MembershipCensusWindowView.as_view(), name="membership_census_window"),
     path("membership-census/declare/", MembershipCensusDeclareView.as_view(), name="membership_census_declare"),
     path("membership-census/confirm/", MembershipCensusConfirmView.as_view(), name="membership_census_confirm"),
